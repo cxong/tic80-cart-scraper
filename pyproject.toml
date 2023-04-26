@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "tic80-cart-scraper"
+version = "0.1.0"
+description = "Scrape the TIC-80 website, download carts and extract metadata"
+authors = ["Cong <congusbongus@gmail.com>"]
+readme = "README.md"
+packages = [{include = "tic80_cart_scraper"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+beautifulsoup4 = "^4.12.2"
+aiohttp = "^3.8.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
