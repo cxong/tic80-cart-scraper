@@ -10,6 +10,8 @@ packages = [{include = "tic80_cart_scraper"}]
 python = "^3.11"
 beautifulsoup4 = "^4.12.2"
 aiohttp = "^3.8.4"
+aiofiles = "^23.1.0"
+pandas = "^2.0.1"
 
 
 [build-system]
