@@ -56,7 +56,7 @@ async def main():
                 / 1000
             )
             rating = int(soup.find(id="rating-label").text)
-            text = heading.parent.find("p").text
+            text = soup.find("h2", text="Comments").find_previous_sibling("p").text
             dl_link = (
                 TIC80_BASE_URL
                 + soup.find("a", string="download cartridge").attrs["href"]
