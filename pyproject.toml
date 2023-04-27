@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Scrape the TIC-80 website, download carts and extract metadata"
 authors = ["Cong <congusbongus@gmail.com>"]
 readme = "README.md"
-packages = [{include = "tic80_cart_scraper"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -13,6 +12,9 @@ aiohttp = "^3.8.4"
 aiofiles = "^23.1.0"
 pandas = "^2.0.1"
 
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
 
 [build-system]
 requires = ["poetry-core"]
