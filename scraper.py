@@ -1,6 +1,7 @@
 import asyncio
-import datetime as dt
 import json
+import re
+import subprocess
 from pathlib import Path
 
 import aiofiles
@@ -13,6 +14,7 @@ TIC80_CART_URL = f"{TIC80_BASE_URL}/play?cart={{cart_id}}"
 OUTPUT_DIR = Path("/tmp/tic80-carts")
 NUM_WORKERS = 5
 MAX_CART_ID = 3400
+META_PATTERN = re.compile(r"^(?:;;|\/\/|#|--) (\S+):\s*(.+)\s*$")
 
 
 async def cart_dl_worker(queue: asyncio.Queue):
@@ -38,7 +40,7 @@ async def cart_dl_worker(queue: asyncio.Queue):
 async def main():
     metadata = []
     cart_dl_queue = asyncio.Queue()
-    cart_dl_tasks = [asyncio.create_task(cart_dl_worker(cart_dl_queue))] * NUM_WORKERS
+    cart_dl_tasks = [asyncio.create_task(cart_dl_worker(cart_dl_queue)) for _ in range(NUM_WORKERS)]
     out_dir = OUTPUT_DIR / "meta"
     out_dir.mkdir(parents=True, exist_ok=True)
     async with aiohttp.ClientSession() as session:
@@ -53,6 +55,10 @@ async def main():
                 print("Fetching cart", cart_id)
                 async with session.get(url) as resp:
                     if resp.status == 404:
+                        # Write out an empty metadata file so we don't scrape again
+                        async with aiofiles.open(path, mode="w") as f:
+                            await f.write(json.dumps(meta))
+                        print(f"{cart_id=} not found")
                         continue
                     content = await resp.text()
                 soup = BeautifulSoup(content, "html.parser")
@@ -108,7 +114,7 @@ async def main():
                 meta = {
                     "cart_id": cart_id,
                     "category": category,
-                    "title": title,
+                    "title_page": title,
                     "desc": desc,
                     "author": author,
                     "uploader": uploader,
@@ -125,7 +131,7 @@ async def main():
                     await f.write(json.dumps(meta))
                 print(f"Scraped {cart_id=}")
 
-            await cart_dl_queue.put((cart_id, dl_link))
+                await cart_dl_queue.put((cart_id, dl_link))
 
             metadata.append(meta)
 
@@ -137,7 +143,25 @@ async def main():
         task.cancel()
     await asyncio.gather(*cart_dl_tasks, return_exceptions=True)
 
-    df = pd.DataFrame(metadata)
+    df = pd.DataFrame(metadata).set_index("cart_id")
+    # Remove empty carts
+    df = df[df["title_page"] != ""]
+    print("Reading metadata from carts...")
+    cart_metadata = []
+    for cart in sorted((OUTPUT_DIR / "carts").glob("*.tic"), key=lambda x: int(x.stem)):
+        print(f"Reading cart={cart.stem}...")
+        meta = {"cart_id": int(cart.stem)}
+        first_meta_found = False
+        for line in subprocess.check_output(["strings", str(cart)]).split(b"\n"):
+            match = META_PATTERN.match(line.decode("utf-8"))
+            if match:
+                meta[match.group(1)] = match.group(2)
+                first_meta_found = True
+            elif first_meta_found:
+                break
+        cart_metadata.append(meta)
+    df_cart = pd.DataFrame(cart_metadata).set_index("cart_id")
+    df = df.join(df_cart, rsuffix="_cart")
     df.to_csv(OUTPUT_DIR / "metadata.csv")
 
 
